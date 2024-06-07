@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import time
 
 # 加载预训练的BERT模型和tokenizer
-model_name = 'bert-base-chinese'
+model_name = 'D:/models/bert-base-chinese'
 tokenizer = BertTokenizer.from_pretrained(model_name)
 model = BertModel.from_pretrained(model_name)
 # 输入文本
