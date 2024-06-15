@@ -1,16 +1,20 @@
 
 from .predict_harmful import predict_harm
-from .predict_similarity import similarity
 
 from flask import (
     Blueprint, request, jsonify
 )
 from flask_cors import CORS
 
+from .predict_similarity import predict_similarity
+
 bp = Blueprint('classify', __name__, url_prefix='/classify')
 CORS(bp)
 
 
+'''
+    相似度判断
+'''
 @bp.route('/similarity', methods=["GET"])
 def is_similarity():
     try:
@@ -18,7 +22,7 @@ def is_similarity():
         text2 = request.args.get('text2', default='', type=str)
         result = 0
         if(text1!=''):
-            result = similarity(text1,text2)
+            result = predict_similarity(text1,text2)
           
         print(result)
         response_data = {
@@ -38,12 +42,11 @@ def is_similarity():
         return jsonify(response_data), 500
 
 
+'''
+    有害无害判断
+'''
 @bp.route('/harmful', methods=['GET'])
 def is_harmful():
-    # import os
-    # current_directory = os.getcwd()
-    # print("当前工作目录是：", current_directory)
-
     try:
         text = request.args.get('text', default='', type=str)
         print(text)
