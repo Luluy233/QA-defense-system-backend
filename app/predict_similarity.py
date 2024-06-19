@@ -1,108 +1,67 @@
 # -*- coding: utf-8 -*-
 from transformers import BertTokenizer, BertModel
 import torch
-from sklearn.metrics.pairwise import cosine_similarity
-import time
+from app.FinetuneBertModel import FinetuneBertModel
+import os
 
-# 加载预训练的BERT模型和tokenizer
-model_name = 'D:/models/bert-base-chinese'
+# 加载预训练模型的分词器
+model_name = 'D:/mycreate/QA-defense-system-backend/similarity_model/bert-base-chinese'
 tokenizer = BertTokenizer.from_pretrained(model_name)
-model = BertModel.from_pretrained(model_name)
-# 输入文本
-# 分词并添加特殊标记
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def similarity(text1, text2):
-    tokens1 = tokenizer.tokenize(text1)
-    tokens1 = ['[CLS]'] + tokens1 + ['[SEP]']
-    tokens2 = tokenizer.tokenize(text2)
-    tokens2 = ['[CLS]'] + tokens2 + ['[SEP]']
+# 加载模型的部分状态字典
+checkpoint = torch.load('similarity_epochs8_lr2e-5_batch128/checkpoint')
+model_state_dict = checkpoint['model_state_dict']
+# 构建一个与预训练模型匹配的 BertModel 实例
+bert_model = BertModel.from_pretrained(model_name)
 
-    # 将分词转换为词汇表中的索引
-    input_ids1 = tokenizer.convert_tokens_to_ids(tokens1)
-    input_ids2 = tokenizer.convert_tokens_to_ids(tokens2)
+# 从模型状态字典中加载 bert 部分的权重
+bert_state_dict = {k.replace('bert.', ''): v for k, v in model_state_dict.items() if k.startswith('bert')}
 
-    # print(input_ids1)
-    # 将输入转换为PyTorch张量
-    input_tensor1 = torch.tensor([input_ids1])
-    input_tensor2 = torch.tensor([input_ids2])
-    # print(input_tensor1)
-    # 获取词向量
-    with torch.no_grad():
-        outputs1 = model(input_tensor1)
-        embeddings1 = outputs1[0][0]
-        outputs2 = model(input_tensor2)
-        embeddings2 = outputs2[0][0]
-    # 计算句子表示
-    sentence_embedding1 = torch.mean(embeddings1, dim=0)
-    sentence_embedding2 = torch.mean(embeddings2, dim=0)
-    # print(sentence_embedding1)
-    # 计算余弦相似度
-    similarity = cosine_similarity(sentence_embedding1.unsqueeze(0), sentence_embedding2.unsqueeze(0))
-    if(similarity[0][0] > 0.95):
-        return 1
-    else:
-        return 0
+# 加载 bert 部分的权重到预训练模型
+bert_model.load_state_dict(bert_state_dict, strict=False)
+
+# 构建您的 Fine-tune 模型并加载剩余状态字典
+model = FinetuneBertModel()
+model.bert = bert_model  # 将加载的 bert 部分设置给 FinetuneBertModel 的 bert 属性
+model.load_state_dict(model_state_dict, strict=False)  # 加载剩余状态字典
+model.eval()
+
+possibility = 0.50
+
+'''
+    接口调用模型进行预测
+'''
 
 
-# 相似度预测
-def evaluate_model(train_file):
-    with open(train_file, 'r', encoding='utf-8') as file:
-        lines = file.readlines()
-    TP = 0
-    TN = 0
-    FP = 0
-    FN = 0
-    for line in lines:
-        parts = line.strip().split('\t')
-        if len(parts) != 3:
-            continue
-        text1, text2, label = parts
-        label = int(label)
-        prediction = similarity(text1, text2)
-        #预测正确
-        if prediction == label:
-            if prediction == 1:
-                TP += 1
-            else:
-                TN += 1
-        #预测错误
-        else:
-            if prediction == 1:
-                FP += 1
-            else:
-                FN += 1
+def predict_similarity(text1, text2):
 
-    #准确率
-    accuracy = (TP + TN) / (TP + TN + FP + FN)
-    #精确率
-    precision = TP / (TP + FP)
-    #召回率
-    recall = TP / (TP + FN)
-    # F1-score
-    f1_score = 2/(1/precision + 1/recall)
+    inputs = tokenizer(text1, text2, return_tensors="pt")
+    input_ids = inputs['input_ids']
+    attention_masks = inputs['attention_mask']
 
-    return accuracy, precision, recall, f1_score
+    outputs = model(input_ids=input_ids,
+                    attention_masks=attention_masks
+                    )
+    outputs = torch.sigmoid(outputs).item()
+
+    result = 0 if outputs < possibility else 1
+    # return outputs
+    return result
 
 
+
+
+'''
+    本地测试函数
+'''
 def main():
-    # 记录开始时间
-    # start_time = time.perf_counter()
-    #
-    # # 假设train.txt文件位于当前目录
-    # train_file = 'dev.txt'
-    # accuracy = evaluate_model(train_file)
-    # print(f'模型在训练集上的准确度为: {accuracy * 100:.2f}%')
-    #
-    # # 记录结束时间
-    # end_time = time.perf_counter()
-    # # 计算运行时间
-    # run_time = end_time - start_time
-    # print(f"程序运行时间为：{run_time}秒")
 
-    sentence_a = input("请输入句子1：")
-    sentence_b = input("请输入句子2：")
-    result = similarity(sentence_a, sentence_b)
+    sentence_a = "我想要一杯热咖啡"
+    sentence_b = "一杯咖啡，谢谢"
+    result = predict_similarity(sentence_a, sentence_b)
     print(result)
+
 
 
 if __name__ == '__main__':
