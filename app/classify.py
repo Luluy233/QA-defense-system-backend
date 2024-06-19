@@ -4,12 +4,12 @@ from .predict_harmful import predict_harm
 from flask import (
     Blueprint, request, jsonify
 )
-from flask_cors import CORS
+# from flask_cors import CORS
 
 from .predict_similarity import predict_similarity
 
 bp = Blueprint('classify', __name__, url_prefix='/classify')
-CORS(bp)
+# CORS(bp)
 
 
 '''

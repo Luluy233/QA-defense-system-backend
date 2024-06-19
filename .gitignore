@@ -166,5 +166,5 @@ cython_debug/
 app/checkpoints
 app/logs
 model_hub
-similarity_bert_lr*
-bert-base-chinese
+similarity_model
+similarity_epochs8_lr2e-5_batch128

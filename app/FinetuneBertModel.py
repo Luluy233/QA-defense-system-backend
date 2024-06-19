@@ -3,7 +3,7 @@ from transformers import BertModel
 
 class FinetuneBertModel(torch.nn.Module):
     # model_name：指定预训练模型；freeze_bert是否冻结BERT模型参数
-    def __init__(self, model_name='bert-base-chinese', freeze_bert=False):
+    def __init__(self, model_name='D:/mycreate/QA-defense-system-backend/similarity_model/bert-base-chinese', freeze_bert=False):
         super(FinetuneBertModel,self).__init__()
         # bert模型
         self.bert = BertModel.from_pretrained(model_name)
